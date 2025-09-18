@@ -95,7 +95,7 @@ def parse_latex_metrics(files_map, bib_path=None):
     }
     return metrics
 
-def log_daily_metrics(metrics, config, log_dir=None):
+def log_daily_metrics(metrics, config, log_dir=None, date_override=None):
     """
     Log daily metrics to a JSONL file in .latex-progress/progress.jsonl.
     """
@@ -105,9 +105,9 @@ def log_daily_metrics(metrics, config, log_dir=None):
         log_dir = Path(log_dir)
     log_dir.mkdir(exist_ok=True)
     log_path = log_dir / 'progress.jsonl'
-    today = datetime.date.today().isoformat()
+    entry_date = date_override if date_override else datetime.date.today().isoformat()
     entry = {
-        'date': today,
+        'date': entry_date,
         **metrics,
         'daily_goal': config.get('target_daily', 0),
         'weekly_goal': config.get('target_weekly', 0),
