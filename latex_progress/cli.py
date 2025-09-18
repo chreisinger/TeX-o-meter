@@ -1,6 +1,6 @@
 import click
 from omegaconf import OmegaConf
-import os
+from pathlib import Path
 import json
 from latex_progress.utils import extract_project_plaintext, parse_latex_metrics, log_daily_metrics
 from datetime import timedelta
@@ -8,15 +8,15 @@ from datetime import timedelta
 CONFIG_FILE = ".latex-progress.yaml"
 
 def get_config_path():
-    return os.path.join(os.getcwd(), CONFIG_FILE)
+    return str(Path.cwd() / CONFIG_FILE)
 
 def save_config(cfg):
     OmegaConf.save(cfg, get_config_path())
 
 def load_config():
-    path = get_config_path()
-    if os.path.exists(path):
-        return OmegaConf.load(path)
+    path = Path(get_config_path())
+    if path.exists():
+        return OmegaConf.load(str(path))
     return None
 
 @click.group()
@@ -30,17 +30,19 @@ def cli():
 @click.option('--target-weekly', type=int, required=True, help='Weekly word goal')
 @click.option('--latex-path', type=click.Path(exists=True), required=True, help='Path to LaTeX file or directory')
 @click.option('--bib', type=click.Path(), required=True, help='Path to .bib file')
+@click.option('--bib-abbrev', type=click.Path(), default=None, help='Path to bib abbreviation file (optional)')
 @click.option('--calendar', type=str, default=None, help='Calendar integration (e.g., google)')
 @click.option('--calendar-id', type=str, default='primary', help='Calendar ID (if using calendar integration)')
-def init(target_total, target_daily, target_weekly, latex_path, bib, calendar, calendar_id):
+def init(target_total, target_daily, target_weekly, latex_path, bib, bib_abbrev, calendar, calendar_id):
     """Initialize project config."""
-    resolved_latex_path = os.path.abspath(os.path.expanduser(latex_path))
+
     cfg = OmegaConf.create({
         "target_total": target_total,
         "target_daily": target_daily,
         "target_weekly": target_weekly,
-        "latex_path": resolved_latex_path,
-        "bib": bib,
+        "latex_path": str(Path(latex_path).expanduser().resolve()),
+        "bib": str(Path(bib).expanduser().resolve()) if bib else None,
+        "bib_abbrev": str(Path(bib_abbrev).expanduser().resolve()) if bib_abbrev else None,
         "calendar": calendar,
         "calendar_id": calendar_id
     })
@@ -65,7 +67,8 @@ def track(date):
     files = result["files"]
     # Get bib path from config if available
     bib_path = cfg.get('bib', None)
-    metrics = parse_latex_metrics(files, bib_path=bib_path)
+    bib_abbrev = cfg.get('bib_abbrev', None)
+    metrics = parse_latex_metrics(files, latex_path, bib_dict={'bib': bib_path, 'bib_abbrev': bib_abbrev})
     entry = log_daily_metrics(metrics, cfg, date_override=date)
     click.echo(f"Date: {entry['date']}")
     click.echo(f"Total words in project: {entry['words_total']} (+{entry['words_delta']} today)")
@@ -76,7 +79,7 @@ def track(date):
     calendar_val = str(cfg.get('calendar', '') or '').lower()
     if calendar_val == 'google':
         try:
-            from latex_progress.calendar import create_event
+            from latex_progress.calendar import upsert_event
             percent_daily = 0
             if entry['daily_goal']:
                 percent_daily = int(100 * entry['words_delta'] / entry['daily_goal'])
@@ -102,7 +105,7 @@ def track(date):
             week_pct = 0
             if tracked_dt:
                 monday = tracked_dt - timedelta(days=tracked_dt.weekday())
-                log_path = os.path.join('.latex-progress', 'progress.jsonl')
+                log_path = Path('.latex-progress') / 'progress.jsonl'
                 try:
                     with open(log_path) as f:
                         for line in f:
@@ -124,10 +127,10 @@ def track(date):
                 f"Citation coverage: {entry['citation_coverage']*100:.1f}%"
             )
             calendar_id = cfg.get('calendar_id', 'primary')
-            create_event(summary, description, entry['date'], calendar_id=calendar_id)
-            click.echo("Google Calendar event created.")
+            upsert_event(summary, description, entry['date'], calendar_id=calendar_id)
+            click.echo("Google Calendar event upserted.")
         except Exception as e:
-            click.echo(f"[Calendar] Failed to create event: {e}")
+            click.echo(f"[Calendar] Failed to upsert event: {e}")
 
 
 @cli.command()
@@ -137,7 +140,7 @@ def dash(port, open_browser):
     """Launch Dash dashboard."""
     from latex_progress.dash_app import create_dash_app
     import webbrowser
-    log_path = os.path.join('.latex-progress', 'progress.jsonl')
+    log_path = str(Path('.latex-progress') / 'progress.jsonl')
     app = create_dash_app(log_path)
     url = f"http://127.0.0.1:{port}"
     if open_browser:

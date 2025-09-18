@@ -1,7 +1,7 @@
+from pathlib import Path
 import re
 import datetime
 import json
-import os
 from pathlib import Path
 def count_words(text):
     """Count words in a string (split on whitespace)."""
@@ -9,6 +9,7 @@ def count_words(text):
 
 from plaintex import CleanerConfig, CitationManager, LaTeXCleaner
 
+from plaintex import CleanerConfig, CitationManager, LaTeXCleaner
 def extract_project_plaintext(root_dir, folders=None, include_glob=None):
     """
     Extract plain text from a LaTeX project using PlainTeX.
@@ -34,7 +35,7 @@ def extract_project_plaintext(root_dir, folders=None, include_glob=None):
     return {"files": files_map, "citations": sorted_citations}
 
 
-def parse_latex_metrics(files_map, bib_path=None):
+def parse_latex_metrics(files_map, latex_path, bib_dict=None):
     """
     Parse LaTeX files for metrics: word count, figures, tables, algorithms, equations, citations.
     Optionally parse .bib file for total entries and citation coverage.
@@ -45,11 +46,7 @@ def parse_latex_metrics(files_map, bib_path=None):
 
     # Parse environments and citations from raw LaTeX source
     # Find all .tex files in the project root and subfolders
-    tex_files = []
-    for root, dirs, files in os.walk(Path(list(files_map.keys())[0]).parent):
-        for file in files:
-            if file.endswith('.tex'):
-                tex_files.append(os.path.join(root, file))
+    tex_files = [str(p) for p in Path(latex_path).rglob('*.tex')]
 
     env_patterns = {
         'figures_total': r'\\begin\{figure\}',
@@ -76,15 +73,26 @@ def parse_latex_metrics(files_map, bib_path=None):
     citations_used_unique = len(citation_keys)
     bib_total = 0
     citation_coverage = 0.0
+    # Support bib_abbrev file concatenation if present
+    bib_abbrev_path, bib_path = None, None
+    if isinstance(bib_dict, dict):
+        bib_abbrev_path = bib_dict.get('bib_abbrev', None)
+        bib_path = bib_dict.get('bib', None)
     if bib_path and Path(bib_path).exists():
         try:
             import bibtexparser
+            bib_content = ''
+            if bib_abbrev_path and Path(bib_abbrev_path).exists():
+                with open(bib_abbrev_path, 'r', encoding='utf-8') as abbrev_file:
+                    bib_content += abbrev_file.read() + '\n'
             with open(bib_path, 'r', encoding='utf-8') as bibfile:
-                bib_db = bibtexparser.load(bibfile)
+                bib_content += bibfile.read()
+            bib_db = bibtexparser.loads(bib_content)
             bib_total = len(bib_db.entries)
             if bib_total > 0:
                 citation_coverage = citations_used_unique / bib_total
         except Exception:
+            print("Error reading bib file for metrics")
             pass
     metrics = {
         'words_total': words_total,
@@ -115,16 +123,30 @@ def log_daily_metrics(metrics, config, log_dir=None, date_override=None):
     }
     # Compute words_delta (difference from previous day)
     words_delta = entry['words_total']
+    lines = []
+    prev_day_words = None
+    today_idx = None
     if log_path.exists():
         try:
             with open(log_path, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
-            if lines:
-                last = json.loads(lines[-1])
-                words_delta = entry['words_total'] - last.get('words_total', 0)
+            # Find previous day's entry and today's entry (if any)
+            for idx, line in enumerate(lines):
+                rec = json.loads(line)
+                if rec['date'] == entry_date:
+                    today_idx = idx
+                elif rec['date'] < entry_date:
+                    prev_day_words = rec.get('words_total', None)
+            if prev_day_words is not None:
+                words_delta = entry['words_total'] - prev_day_words
         except Exception:
             pass
     entry['words_delta'] = words_delta
-    with open(log_path, 'a', encoding='utf-8') as f:
-        f.write(json.dumps(entry) + '\n')
+    # Overwrite today's entry if it exists, else append
+    if today_idx is not None:
+        lines[today_idx] = json.dumps(entry) + '\n'
+    else:
+        lines.append(json.dumps(entry) + '\n')
+    with open(log_path, 'w', encoding='utf-8') as f:
+        f.writelines(lines)
     return entry
