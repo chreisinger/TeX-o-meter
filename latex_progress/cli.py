@@ -1,25 +1,22 @@
 import click
-import hydra
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import OmegaConf
 import os
 import json
-from latex_progress.utils import extract_project_plaintext, count_words, parse_latex_metrics, log_daily_metrics
+from latex_progress.utils import extract_project_plaintext, parse_latex_metrics, log_daily_metrics
 from datetime import timedelta
 
-CONFIG_FILE = ".latex-progress.json"
+CONFIG_FILE = ".latex-progress.yaml"
 
 def get_config_path():
     return os.path.join(os.getcwd(), CONFIG_FILE)
 
 def save_config(cfg):
-    with open(get_config_path(), "w") as f:
-        json.dump(OmegaConf.to_container(cfg, resolve=True), f, indent=2)
+    OmegaConf.save(cfg, get_config_path())
 
 def load_config():
     path = get_config_path()
     if os.path.exists(path):
-        with open(path) as f:
-            return OmegaConf.create(json.load(f))
+        return OmegaConf.load(path)
     return None
 
 @click.group()
@@ -31,46 +28,40 @@ def cli():
 @click.option('--target-total', type=int, required=True, help='Total word goal')
 @click.option('--target-daily', type=int, required=True, help='Daily word goal')
 @click.option('--target-weekly', type=int, required=True, help='Weekly word goal')
+@click.option('--latex-path', type=click.Path(exists=True), required=True, help='Path to LaTeX file or directory')
 @click.option('--bib', type=click.Path(), required=True, help='Path to .bib file')
 @click.option('--calendar', type=str, default=None, help='Calendar integration (e.g., google)')
-def init(target_total, target_daily, target_weekly, bib, calendar, cid='primary'):
+@click.option('--calendar-id', type=str, default='primary', help='Calendar ID (if using calendar integration)')
+def init(target_total, target_daily, target_weekly, latex_path, bib, calendar, calendar_id):
     """Initialize project config."""
+    resolved_latex_path = os.path.abspath(os.path.expanduser(latex_path))
     cfg = OmegaConf.create({
         "target_total": target_total,
         "target_daily": target_daily,
         "target_weekly": target_weekly,
+        "latex_path": resolved_latex_path,
         "bib": bib,
         "calendar": calendar,
-        # Optionally add calendar_id to config, user can edit config file to set it
-        "calendar_id": cid
+        "calendar_id": calendar_id
     })
     save_config(cfg)
     click.echo(f"Initialized config and saved to {CONFIG_FILE}")
 
 
 @cli.command()
-@click.argument('paths', nargs=-1, type=click.Path(exists=True))
 @click.option('--date', type=str, default=None, help='Override date for tracking (YYYY-MM-DD)')
-def track(paths, date):
+def track(date):
     """Track progress for given .tex files, a directory, or current directory."""
     cfg = load_config()
     if not cfg:
         click.echo("Config not found. Please run 'latex-progress init' first.")
         return
-    # If a directory is given, use it as root. If .tex files are given, use their directory. If nothing, use cwd.
-    root_dir = None
-    if paths:
-        # If any path is a directory, use it as root
-        for p in paths:
-            if os.path.isdir(p):
-                root_dir = os.path.abspath(p)
-                break
-        if not root_dir:
-            # Use the directory of the first file
-            root_dir = os.path.dirname(os.path.abspath(paths[0]))
-    else:
-        root_dir = os.getcwd()
-    result = extract_project_plaintext(root_dir)
+    # Always use the latex_path from config
+    latex_path = cfg.get('latex_path', None)
+    if latex_path is None:
+        click.echo("No LaTeX file or directory specified in config. Please re-run 'latex-progress init'.")
+        return
+    result = extract_project_plaintext(latex_path)
     files = result["files"]
     # Get bib path from config if available
     bib_path = cfg.get('bib', None)
