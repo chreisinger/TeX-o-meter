@@ -41,14 +41,11 @@ It is recommended to use a Python virtual environment for development and usage.
 2. **Install required dependencies:**
 
 	```bash
-		pip install click hydra-core omegaconf bibtexparser dash plotly pandas
-		# Install PlainTeX (required, not on PyPI):
-		pip install git+https://github.com/chreisinger/PlainTeX.git
-	# For Google Calendar integration, also install:
+    pip install click hydra-core omegaconf bibtexparser dash plotly pandas
+    # Install PlainTeX (latex to plain text converter):
+    pip install git+https://github.com/chreisinger/PlainTeX.git
+	# Google Calendar integration:
 	pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
-	# For simulation:
-	pip install numpy
-	# For editable install (development):
 	pip install -e .
 	```
 ## Google calendar setup
