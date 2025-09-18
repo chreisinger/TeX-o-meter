@@ -23,6 +23,25 @@ TeX-o-meter is a command line tool to track your LaTeX writing progress, visuali
 
 A typical workflow:
 
+## Environment setup
+
+It is recommended to use a Python virtual environment for development and usage.
+
+1. **Create and activate a virtual environment:**
+
+	```bash
+	python3 -m venv .venv
+	source .venv/bin/activate
+	```
+
+2. **Install required dependencies:**
+
+	```bash
+	pip install -e .
+	# If you want to use Google Calendar integration, also install:
+	pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
+	```
+
 ## Google calendar setup
 ```
 https://developers.google.com/workspace/calendar/api/quickstart/python
