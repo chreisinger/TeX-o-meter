@@ -3,13 +3,14 @@ import re
 import datetime
 import json
 from pathlib import Path
+from plaintex import CleanerConfig, CitationManager, LaTeXCleaner
+
+
 def count_words(text):
     """Count words in a string (split on whitespace)."""
     return len(text.split())
 
-from plaintex import CleanerConfig, CitationManager, LaTeXCleaner
 
-from plaintex import CleanerConfig, CitationManager, LaTeXCleaner
 def extract_project_plaintext(root_dir, folders=None, include_glob=None):
     """
     Extract plain text from a LaTeX project using PlainTeX.
