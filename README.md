@@ -27,6 +27,10 @@ A typical workflow:
 
 It is recommended to use a Python virtual environment for development and usage.
 
+**Python version:**
+
+- Python 3.7 or newer is required.
+
 1. **Create and activate a virtual environment:**
 
 	```bash
@@ -37,29 +41,20 @@ It is recommended to use a Python virtual environment for development and usage.
 2. **Install required dependencies:**
 
 	```bash
-	pip install -e .
-	# If you want to use Google Calendar integration, also install:
+		pip install click hydra-core omegaconf bibtexparser dash plotly pandas
+		# Install PlainTeX (required, not on PyPI):
+		pip install git+https://github.com/chreisinger/PlainTeX.git
+	# For Google Calendar integration, also install:
 	pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
+	# For simulation:
+	pip install numpy
+	# For editable install (development):
+	pip install -e .
 	```
-
 ## Google calendar setup
 ```
 https://developers.google.com/workspace/calendar/api/quickstart/python
 ```
-
-## Usage
-
-```bash
-latex-progress init --target-total 50000 --target-daily 500 --target-weekly 3500 --bib references.bib --calendar google
-latex-progress track main.tex
-latex-progress dash --port 8050 --open
-```
-
-## Development
-
-- CLI: [Click](https://click.palletsprojects.com/)
-- Install: `pip install -e .`
-
 
 ## Google Calendar integration
 
@@ -81,3 +76,11 @@ If you want to use a different calendar (e.g., a shared or project-specific cale
 	  ```
 - **If not set:**
 	- If you do not set `calendar_id`, events will be added to your default (primary) Google Calendar.
+
+## Usage
+
+```bash
+latex-progress init --target-total 50000 --target-daily 500 --target-weekly 3500 --bib references.bib --calendar google
+latex-progress track main.tex
+latex-progress dash --port 8050 --open
+```
